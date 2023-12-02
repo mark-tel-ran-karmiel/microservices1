@@ -1,6 +1,7 @@
 package telran.microservices.probes;
 
 import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.HashMap;
 import java.util.List;
@@ -19,6 +20,8 @@ import org.springframework.cloud.stream.binder.test.TestChannelBinderConfigurati
 import org.springframework.context.annotation.Import;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.GenericMessage;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import telran.microservices.probes.dto.Probe;
 import telran.microservices.probes.entities.ListProbesValues;
@@ -45,8 +48,8 @@ public class AverageReducerTest {
 	Probe probeNoValues = new Probe(PROBE_ID_NO_VALUES, VALUE);
 	Probe probeNoAvg = new Probe(PROBE_ID_NO_AVG, VALUE);
 	Probe probAvg = new Probe(PROBE_ID_AVG, VALUE);
-	String producerbindingName = "out";
-	String consumerBindingName = "";
+	private String producerbindingName = "avgProducer-out-0";
+	private String consumerBindingName = "avgConsumer-in-0";
 	@BeforeAll
 	static void setUpAll() {
 		valuesNoAvg = listProbeNoAvg.getValues();
@@ -58,20 +61,61 @@ public class AverageReducerTest {
 	
 	@Test
 	void probeNoValuesTest() {
-		when(listProbeRepo.findById(PROBE_ID_NO_AVG)).thenReturn(Optional.ofNullable(null));
+		when(listProbeRepo.findById(PROBE_ID_NO_VALUES)).thenReturn(Optional.ofNullable(null));
 		when(listProbeRepo.save(new ListProbesValues(PROBE_ID_NO_VALUES))).thenAnswer(new Answer<ListProbesValues>() {
 
 			@Override
 			public ListProbesValues answer(InvocationOnMock invocation) throws Throwable {
+				redisMap.put(PROBE_ID_NO_VALUES, invocation.getArgument(0));
 				return invocation.getArgument(0);
 			}
 			
 		});
 		
 		producer.send(new GenericMessage<Probe>(probeNoValues), consumerBindingName);
+		
 		Message<byte[]> message = consumer.receive(100, producerbindingName);
-		
-		
+		assertNull(message);
+		assertEquals(VALUE, redisMap.get(PROBE_ID_NO_VALUES).getValues().get(0));
 	}
 	
+	@Test
+	void probeNoAvgTest() {
+		when(listProbeRepo.findById(PROBE_ID_NO_AVG)).thenReturn(Optional.of(listProbeNoAvg));
+		when(listProbeRepo.save(new ListProbesValues(PROBE_ID_NO_AVG))).thenAnswer(new Answer<ListProbesValues>() {
+
+			@Override
+			public ListProbesValues answer(InvocationOnMock invocation) throws Throwable {
+				redisMap.put(PROBE_ID_NO_AVG, invocation.getArgument(0));
+				return invocation.getArgument(0);
+			}
+			
+		});
+		producer.send(new GenericMessage<Probe>(probeNoAvg), consumerBindingName);
+		
+		Message<byte[]> message = consumer.receive(100, producerbindingName);
+		assertNull(message);
+		assertEquals(VALUE, redisMap.get(PROBE_ID_NO_AVG).getValues().get(0));
+	}
+	
+	@Test
+	void probeAvgTest() throws Exception {
+		when(listProbeRepo.findById(PROBE_ID_AVG)).thenReturn(Optional.of(listProbeAvg));
+		when(listProbeRepo.save(new ListProbesValues(PROBE_ID_AVG))).thenAnswer(new Answer<ListProbesValues>() {
+
+			@Override
+			public ListProbesValues answer(InvocationOnMock invocation) throws Throwable {
+				redisMap.put(PROBE_ID_AVG, invocation.getArgument(0));
+				return invocation.getArgument(0);
+			}
+			
+		});
+		producer.send(new GenericMessage<Probe>(probAvg), consumerBindingName);
+		
+		Message<byte[]> message = consumer.receive(100, producerbindingName);
+		assertNotNull(message);
+		ObjectMapper mapper = new ObjectMapper();
+		assertEquals(probAvg, mapper.readValue(message.getPayload(), Probe.class));
+		assertTrue(redisMap.get(PROBE_ID_NO_AVG).getValues().isEmpty());
+	}
 }

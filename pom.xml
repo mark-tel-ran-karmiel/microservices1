@@ -92,9 +92,7 @@
 			</snapshots>
 		</repository>
 	</repositories>
-
 	<modules>
-		<module>avg-reducer</module>
 		<module>avgRreducer</module>
 	</modules>
 </project>
