@@ -20,6 +20,11 @@
 	</properties>
 	<dependencies>
 		<dependency>
+			<groupId>telran.probes</groupId>
+  			<artifactId>api</artifactId>
+  			<version>0.0.1</version>
+		</dependency>
+		<dependency>
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-starter</artifactId>
 		</dependency>
@@ -94,5 +99,6 @@
 	</repositories>
 	<modules>
 		<module>avgRreducer</module>
+		<module>email-data-provider</module>
 	</modules>
 </project>
